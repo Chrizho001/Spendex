@@ -46,6 +46,24 @@ class Transaction:
             (transaction_id, user_id),
         )
 
+    # ------------------------------
+    # Update Transaction    
+
+    @classmethod
+    def update(cls, transaction_id, user_id, amount, category, transaction_type, description):
+        db = Database()
+
+        query = """
+        UPDATE transactions
+        SET amount = ?, category = ?, type = ?, description = ?
+        WHERE id = ? AND user_id = ?
+        """
+
+        db.execute(
+            query,
+            (amount, category, transaction_type, description, transaction_id, user_id)
+        )
+
     # -----------------------------
     # Fetch All Transactions for User
     # -----------------------------

@@ -38,17 +38,12 @@ class FinanceApp:
             console.print(
                 Panel.fit(
                     "[bold cyan]Finance Tracker[/bold cyan]\n[dim]Multi-user CLI System[/dim]",
-                    border_style="green"
+                    border_style="green",
                 )
             )
 
             choice = questionary.select(
-                "Choose an option:",
-                choices=[
-                    "Register",
-                    "Login",
-                    "Exit"
-                ]
+                "Choose an option:", choices=["Register", "Login", "Exit"]
             ).ask()
 
             if choice == "Register":
@@ -93,6 +88,7 @@ class FinanceApp:
         else:
             console.print("[bold red]✖ Invalid credentials.[/bold red]")
             questionary.press_any_key_to_continue().ask()
+
     # -----------------------------
     # Main Application Menu
     # -----------------------------
@@ -103,7 +99,7 @@ class FinanceApp:
             console.print(
                 Panel.fit(
                     f"[bold yellow]Welcome, {self.current_user.username}[/bold yellow]",
-                    border_style="blue"
+                    border_style="blue",
                 )
             )
 
@@ -114,8 +110,10 @@ class FinanceApp:
                     "Add Expense",
                     "View Balance",
                     "View Transactions",
-                    "Logout"
-                ]
+                    "Delete Transaction",
+                    "Update Transaction",
+                    "Logout",
+                ],
             ).ask()
 
             if choice == "Add Income":
@@ -126,6 +124,10 @@ class FinanceApp:
                 self.view_balance()
             elif choice == "View Transactions":
                 self.view_transactions()
+            elif choice == "Delete Transaction":
+                self.delete_transaction()
+            elif choice == "Update Transaction":
+                self.update_transaction()
             elif choice == "Logout":
                 self.logout()
 
@@ -207,11 +209,104 @@ class FinanceApp:
                     t.type.upper(),
                     t.category,
                     str(t.amount),
-                    t.description or ""
+                    t.description or "",
                 )
 
             console.print(table)
 
+        questionary.press_any_key_to_continue().ask()
+
+    def delete_transaction(self):
+        console.clear()
+
+        transactions = self.wallet.get_transactions()
+
+        if not transactions:
+            console.print("[bold red]No transactions available to delete.[/bold red]")
+            questionary.press_any_key_to_continue().ask()
+            return
+
+        # Build selectable list
+        choices = []
+        for t in transactions:
+            label = f"{t.created_at} | {t.type.upper()} | {t.category} | {t.amount}"
+            choices.append(questionary.Choice(title=label, value=t.id))
+
+        selected_id = questionary.select(
+            "Select a transaction to delete:", choices=choices
+        ).ask()
+
+        if selected_id is None:
+            return
+
+        confirm = questionary.confirm(
+            "Are you sure you want to delete this transaction?"
+        ).ask()
+
+        if confirm:
+            from models.transaction import Transaction
+
+            Transaction.delete(selected_id, self.current_user.id)
+
+            console.print(
+                "[bold green]✔ Transaction deleted successfully.[/bold green]"
+            )
+        else:
+            console.print("[yellow]Deletion cancelled.[/yellow]")
+
+        questionary.press_any_key_to_continue().ask()
+
+    def update_transaction(self):
+        console.clear()
+
+        transactions = self.wallet.get_transactions()
+
+        if not transactions:
+            console.print("[bold red]No transactions available to update.[/bold red]")
+            questionary.press_any_key_to_continue().ask()
+            return
+
+        choices = []
+        for t in transactions:
+            label = f"{t.created_at} | {t.type.upper()} | {t.category} | {t.amount}"
+            choices.append(questionary.Choice(title=label, value=t))
+
+        selected_transaction = questionary.select(
+            "Select a transaction to update:", choices=choices
+        ).ask()
+
+        if not selected_transaction:
+            return
+
+        # Get updated values (pre-filled defaults)
+        amount = get_valid_float("New Amount:")
+        if amount is None:
+            return
+
+        category = get_non_empty_input("New Category:")
+        if category is None:
+            return
+
+        transaction_type = questionary.select(
+            "Type:", choices=["income", "expense"], default=selected_transaction.type
+        ).ask()
+
+        description = questionary.text(
+            "Description (optional):", default=selected_transaction.description or ""
+        ).ask()
+
+        from models.transaction import Transaction
+
+        Transaction.update(
+            transaction_id=selected_transaction.id,
+            user_id=self.current_user.id,
+            amount=amount,
+            category=category,
+            transaction_type=transaction_type,
+            description=description,
+        )
+
+        console.print("[bold green]✔ Transaction updated successfully![/bold green]")
         questionary.press_any_key_to_continue().ask()
 
     def logout(self):
